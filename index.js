@@ -1,5 +1,6 @@
 const { URLSearchParams } = require('url')
 const nodeFetch = require('node-fetch')
+const https = require('https');
 const cheerio = require('cheerio')
 const { v4: uuidv4 } = require('uuid')
 const { DateTime } = require('luxon')
@@ -7,11 +8,17 @@ const { DateTime } = require('luxon')
 const username = process.env.USERNAME
 const password = process.env.PASSWORD
 const citizen = process.env.CITIZEN
+const possibleSiteId = process.env.POSSIBLESITEID
+const earliestdate = process.env.EARLIESTDATE
 const interval = +process.env.INTERVAL
 const webhook = process.env.WEBHOOK
 const headers = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.101 Safari/537.36'
 }
+
+const ignoreSSLagent = new https.Agent({
+  rejectUnauthorized: false,
+});
 
 /**
  * Logs in and returns a token
@@ -86,7 +93,8 @@ async function notify (text) {
     },
     body: JSON.stringify({
       value1: text
-    })
+    }),
+    agent: ignoreSSLagent
   })
 }
 
@@ -98,8 +106,9 @@ async function check () {
     const { access_token } = await login()
     const params = new URLSearchParams({
       timeOfDay: 'ALL_DAY',
-      lastDate: DateTime.now().toISODate(),
-      lastTime: '00:00'
+      lastDate: earliestdate,
+      lastTime: '00:00',
+      possibleSiteId: possibleSiteId,
     })
     const before = Date.now()
     const resp = await nodeFetch(`https://impfzentren.bayern/api/v1/citizens/${citizen}/appointments/next?` + params.toString(), {
@@ -122,4 +131,10 @@ async function check () {
   }
 }
 
+process.on('SIGINT', () => {
+  console.info("Interrupted")
+  process.exit(0)
+})
+
 setInterval(check, interval * 1000)
+check()
