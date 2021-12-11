@@ -84,7 +84,7 @@ async function login () {
 /**
  * Calls an IFTTT web hook
  */
-async function notify (text) {
+async function notify (text, respdata) {
   await nodeFetch(webhook, {
     method: 'POST',
     headers: {
@@ -92,7 +92,8 @@ async function notify (text) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      value1: text
+      value1: text,
+      data: respdata
     }),
     agent: ignoreSSLagent
   })
@@ -117,17 +118,18 @@ async function check () {
         'Authorization': `Bearer ${access_token}`
       }
     })
+    const data = await resp.json()
     console.log(`Check took ${Date.now() - before} ms`)
 
     if (resp.status === 404) {
-      console.log('Keine Impftermine verfügbar ... ')
+      console.log(`${new Date().toISOString()} Keine Impftermine verfügbar ...`)
     } else {
-      console.log('Es wurde ein Impftermin reserviert!')
-      await notify('Es wurde ein Impftermin reserviert!')
+      console.log(`${new Date().toISOString()} Es wurde ein Impftermin gefunden: ${JSON.stringify(data)}`)
+      await notify('Es wurde ein Impftermin gefunden!', data)
     }
   } catch (e) {
     console.error(e)
-    await notify(`Es ist ein Fehler aufgetreten: ${e.message}`)
+    await notify(`Es ist ein Fehler aufgetreten: ${e.message}`, e)
   }
 }
 
